@@ -23,6 +23,12 @@ mapping(address => bool) public isHeir;
 /// @param nonce The unique identifier for this arm action
 event Armed(address indexed destination, uint256 timestamp, uint256 delay, uint256 nonce);
 
+
+/// @notice Emitted when the transfer occurs
+/// @param destination The address where funds will be sent after the delay
+/// @param timestamp The block timestamp when arming occurred
+event Transferred(address indexed destination, uint256 timestamp);
+
 /// @notice Restricts access to the contract owner
 modifier onlyOwner() {
     require(msg.sender == owner, "Not owner");
@@ -72,13 +78,12 @@ function arm(bytes[] calldata signatures, address destination) external notArmed
     require(destination != address(0), "Invalid destination");
     bytes32 messageHash = keccak256(abi.encodePacked(address(this), nonce, destination));
     bytes32 ethSigned = ECDSA.toEthSignedMessageHash(messageHash);
-
     address[] memory signers = new address[](signatures.length);
     uint count = 0;
 
     for (uint i = 0; i < signatures.length; i++) {
         address signer = ECDSA.recover(ethSigned, signatures[i]);
-        require(isHeir[signer], "Signer not heir");
+        require(isHeir[signer], "Invalid signature");
         bool unique = true;
         for (uint j = 0; j < count; j++) {
             if (signers[j] == signer) {
@@ -119,6 +124,9 @@ function triggerTransfer() external {
 
     (bool success, ) = dest.call{value: address(this).balance}("");
     require(success, "Transfer failed");
+
+    armTimestamp = block.timestamp;
+    emit Transferred(armedDestination, armTimestamp);
 }
 
 /// @notice Allows the owner to manually transfer funds to a chosen address
@@ -139,6 +147,15 @@ function getHeirs() external view returns (address[] memory) {
 
 /// @notice Accepts ether deposits into the contract
 receive() external payable {}
+
+/// @notice Allows the contract owner to withdraw all ETH from the contract.
+/// @dev Only callable by the owner.
+function withdraw() external onlyOwner {
+    uint256 balance = address(this).balance;
+    require(balance > 0, "No ETH to withdraw");
+    (bool success, ) = owner.call{value: balance}("");
+    require(success, "Withdraw failed");
+}
 
 }
 

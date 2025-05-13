@@ -86,7 +86,7 @@ This protocol aims to:
 - Prevents single-heir fraud via threshold
 - Transparency of destination address limits collusion
 - Signatures are bound to a specific contract instance and destination address to prevent replay
-- `usedHashes` prevents reuse of signatures
+- Signature replay is prevented by enforcing a single active armed state and requiring new signatures after disarming.
 - Reconfigurable heir set reduces risk of compromise
 
 ---
