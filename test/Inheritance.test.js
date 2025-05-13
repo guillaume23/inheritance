@@ -16,6 +16,7 @@ describe("SuccessionManager Contract", function () {
 
     const SuccessionManager = await ethers.getContractFactory("SuccessionManager");
     contract = await SuccessionManager.deploy(
+      owner.address,
       heirs.slice(0, 3).map(a => a.address),
       threshold,
       lockInTime
@@ -33,6 +34,7 @@ describe("SuccessionManager Contract", function () {
     it("should not deploy with empty heirs", async function () {
       const SuccessionManager = await ethers.getContractFactory("SuccessionManager");
       await expect( SuccessionManager.deploy(
+        owner.address,
         heirs.slice(0, 3).map(a => a.address),
         4,
         lockInTime
@@ -42,6 +44,7 @@ describe("SuccessionManager Contract", function () {
     it("should not deploy with threshold greater than # hiers", async function () {
       const SuccessionManager = await ethers.getContractFactory("SuccessionManager");
       await expect( SuccessionManager.deploy(
+        owner.address,
         [],
         threshold,
         lockInTime
@@ -321,7 +324,7 @@ describe("SuccessionManager Contract", function () {
     });
   
     it("Fails when a non-owner tries to withdraw", async function () {
-      await expect(contract.connect(other).withdraw()).to.be.revertedWith("Not owner");
+        await expect(contract.connect(other).withdraw()).to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount").withArgs(other.address);
     });
   });
 

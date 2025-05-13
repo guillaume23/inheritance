@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 /// @title SuccessionManager - Secure and controllable cryptoasset inheritance
 /// @notice Manages asset transfer to heirs in the event of owner's death
-
-contract SuccessionManager {
-address public owner;
+contract SuccessionManager  is Ownable{
 address[] public heirs;
 uint256 public threshold;
 uint256 public delayPeriod;
@@ -29,11 +29,6 @@ event Armed(address indexed destination, uint256 timestamp, uint256 delay, uint2
 /// @param timestamp The block timestamp when arming occurred
 event Transferred(address indexed destination, uint256 timestamp);
 
-/// @notice Restricts access to the contract owner
-modifier onlyOwner() {
-    require(msg.sender == owner, "Not owner");
-    _;
-}
 
 /// @notice Ensures the contract is not already armed
 modifier notArmed() {
@@ -45,9 +40,8 @@ modifier notArmed() {
 /// @param _heirs Array of heir addresses
 /// @param _threshold Minimum number of heirs required to approve a transfer
 /// @param _delayPeriod Waiting period before funds can be claimed
-constructor(address[] memory _heirs, uint256 _threshold, uint256 _delayPeriod) payable {
+constructor(address initialOwner, address[] memory _heirs, uint256 _threshold, uint256 _delayPeriod) payable Ownable(initialOwner) {
     require(_threshold > 0 && _threshold <= _heirs.length, "Invalid threshold");
-    owner = msg.sender;
     heirs = _heirs;
     threshold = _threshold;
     delayPeriod = _delayPeriod;
@@ -153,7 +147,7 @@ receive() external payable {}
 function withdraw() external onlyOwner {
     uint256 balance = address(this).balance;
     require(balance > 0, "No ETH to withdraw");
-    (bool success, ) = owner.call{value: balance}("");
+    (bool success, ) = owner().call{value: balance}("");
     require(success, "Withdraw failed");
 }
 
