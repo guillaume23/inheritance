@@ -7,6 +7,30 @@ export default function Home() {
   const [ownerError, setOwnerError] = useState("");
   const [heirs, setHeirs] = useState([{ address: "", error: "" }]);
   const [threshold, setThreshold] = useState(1);
+  const [lockIn, setLockIn] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [lockInError, setLockInError] = useState('');
+
+  const  computeDelayInSeconds = ({ days = 0, hours = 0, minutes = 0, seconds = 0 }) => {
+
+  return (
+    parseInt(days) * 86400 +
+    parseInt(hours) * 3600 +
+    parseInt(minutes) * 60 +
+    parseInt(seconds)
+  );
+  }
+  
+  const handleLockInChange = (field, value) => {
+    const updated = { ...lockIn, [field]: parseInt(value) || 0 };
+    setLockIn(updated);
+    const totalSeconds = computeDelayInSeconds(updated);
+    if (totalSeconds <= 0) {
+      setLockInError('Lock-in period must be greater than zero');
+    } else {
+      setLockInError('');
+    }
+  };
+
 
   const handleGenerateOwner = () => {
     const wallet = Wallet.createRandom();
@@ -117,17 +141,20 @@ export default function Home() {
     const unique = new Set(heirs.map((h) => h.address.toLowerCase()));
     if (unique.size !== heirs.length) return false;
     if (threshold < 1 || threshold > heirs.length) return false;
+    if (computeDelayInSeconds(lockIn) <= 0) return false;
     return true;
   };
 
-  const handleFinalize = () => {
+  const handleDeploy = () => {
     if (!isValidDeployment()) return;
+    const lockInDelay = computeDelayInSeconds(lockIn);
     const config = {
       owner,
       heirs: heirs.map((h) => h.address),
       threshold,
+      lockInDelay
     };
-    navigate("/finalize", { state: { config } });
+    navigate("/deploy", { state: { config } });
   };
 
   return (
@@ -204,8 +231,54 @@ export default function Home() {
           max={heirs.length}
         />
       </section>
-      <button disabled={!isValidDeployment()} onClick={handleFinalize}>
-        Finalize Deployment
+
+     <section>
+        <div>
+        <h2>Lock-in Period</h2>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <div>
+            <label>Days</label>
+            <input
+              type="number"
+              min="0"
+              value={lockIn.days}
+              onChange={(e) => handleLockInChange('days', e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Hours</label>
+            <input
+              type="number"
+              min="0"
+              value={lockIn.hours}
+              onChange={(e) => handleLockInChange('hours', e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Minutes</label>
+            <input
+              type="number"
+              min="0"
+              value={lockIn.minutes}
+              onChange={(e) => handleLockInChange('minutes', e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Seconds</label>
+            <input
+              type="number"
+              min="0"
+              value={lockIn.seconds}
+              onChange={(e) => handleLockInChange('seconds', e.target.value)}
+            />
+          </div>
+        </div>
+        {lockInError && <span style={{ color: 'red' }}>{lockInError}</span>}
+      </div>
+     </section>
+
+      <button disabled={!isValidDeployment()} onClick={handleDeploy}>
+        Deploy
       </button>
     </div>
   );

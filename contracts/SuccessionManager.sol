@@ -29,6 +29,13 @@ event Armed(address indexed destination, uint256 timestamp, uint256 delay, uint2
 /// @param timestamp The block timestamp when arming occurred
 event Transferred(address indexed destination, uint256 timestamp);
 
+function getHeirsCount() public view returns (uint) {
+    return heirs.length;
+}
+
+function getOwner() public view returns (address) {
+    return owner(); // appelle le owner() d'Ownable
+}
 
 /// @notice Ensures the contract is not already armed
 modifier notArmed() {
@@ -37,10 +44,11 @@ modifier notArmed() {
 }
 
 /// @notice Initializes the contract with heirs, threshold, and delay
+/// @param _owner Address of the owner
 /// @param _heirs Array of heir addresses
 /// @param _threshold Minimum number of heirs required to approve a transfer
-/// @param _delayPeriod Waiting period before funds can be claimed
-constructor(address initialOwner, address[] memory _heirs, uint256 _threshold, uint256 _delayPeriod) payable Ownable(initialOwner) {
+/// @param _delayPeriod Waiting period before funds can be claimed (seconds)
+constructor(address _owner, address[] memory _heirs, uint256 _threshold, uint256 _delayPeriod) payable Ownable(_owner) {
     require(_threshold > 0 && _threshold <= _heirs.length, "Invalid threshold");
     heirs = _heirs;
     threshold = _threshold;
@@ -53,13 +61,15 @@ constructor(address initialOwner, address[] memory _heirs, uint256 _threshold, u
 /// @notice Allows the owner to update the heirs and threshold
 /// @param _newHeirs The new list of heir addresses
 /// @param _newThreshold The new number of required signatures
-function updateHeirs(address[] calldata _newHeirs, uint256 _newThreshold) external onlyOwner {
+/// @param _delayPeriod The new waiting period before funds can be claimed
+function updateHeirs(address[] calldata _newHeirs, uint256 _newThreshold, uint256 _delayPeriod) external onlyOwner {
     require(_newThreshold > 0 && _newThreshold <= _newHeirs.length, "Invalid threshold");
     for (uint i = 0; i < heirs.length; i++) {
         isHeir[heirs[i]] = false;
     }
     heirs = _newHeirs;
     threshold = _newThreshold;
+    delayPeriod = _delayPeriod;
     for (uint i = 0; i < _newHeirs.length; i++) {
         isHeir[_newHeirs[i]] = true;
     }
@@ -126,7 +136,7 @@ function triggerTransfer() external {
 /// @notice Allows the owner to manually transfer funds to a chosen address
 /// @param to The recipient address
 /// @param amount The amount of wei to send
-function manualTransfer(address payable to, uint256 amount) external onlyOwner {
+function ownerTransfer(address payable to, uint256 amount) external onlyOwner {
     require(to != address(0), "Invalid address");
     require(amount <= address(this).balance, "Insufficient balance");
     (bool success, ) = to.call{value: amount}("");

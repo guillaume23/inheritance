@@ -3,8 +3,8 @@
 import SuccessionManagerArtifact from '../contract/SuccessionManager.json';
 import { defaultAbiCoder } from '@ethersproject/abi';
 
-export function generateDeploymentFiles({ owner, heirs, threshold }) {
-  if (!owner || !Array.isArray(heirs) || heirs.length === 0 || !threshold) {
+export function generateDeploymentFiles({ owner, heirs, threshold, lockInDelay }) {
+  if (!owner || !Array.isArray(heirs) || heirs.length === 0 || !threshold || lockInDelay === 0) {
     throw new Error('Invalid deployment config');
   }
 
@@ -12,11 +12,12 @@ export function generateDeploymentFiles({ owner, heirs, threshold }) {
   const configFile = {
     owner,
     heirs,
-    threshold
+    threshold,
+    lockInDelay
   };
 
   // 2. Args File for use in scripts (e.g., with Hardhat, Ethers.js)
-  const argsFile = [owner, heirs, threshold];
+  const argsFile = [owner, heirs, threshold, lockInDelay];
 
   // 3. Encoded Deployment File (for full offline deploy)
   const abi = SuccessionManagerArtifact.abi;
@@ -25,8 +26,9 @@ export function generateDeploymentFiles({ owner, heirs, threshold }) {
   const encodedArgs = defaultAbiCoder.encode([
     'address',
     'address[]',
+    'uint256',
     'uint256'
-  ], [owner, heirs, threshold]);
+  ], [owner, heirs, threshold, lockInDelay]);
 
   const deploymentFile = {
     abi,

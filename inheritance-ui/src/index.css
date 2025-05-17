@@ -12,7 +12,9 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
+  .red-text {
+      color: red;
+    }
 a {
   font-weight: 500;
   color: #646cff;

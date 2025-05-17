@@ -1,10 +1,9 @@
 // App.jsx
-import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
-import QrGenerator from './pages/QrGenerator';
 import ContractInteraction from './pages/ContractInteraction';
-import Finalize from './pages/Finalize';
+import Deploy from './pages/Deploy';
+import PrepareSignature from './pages/PrepareSignature';
 
 function App() {
   return (
@@ -12,15 +11,16 @@ function App() {
       <nav>
         <ul>
           <li><Link to="/">Configuration</Link></li>
-          <li><Link to="/qr">QR Codes</Link></li>
-          <li><Link to="/contract">Contrat</Link></li>
+          {/* <li><Link to="/deploy">Deploy</Link></li> */}
+          <li><Link to="/interact">Interact</Link></li>
+          <li><Link to="/transferApproval">Transfer approval</Link></li>
         </ul>
       </nav>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/qr" element={<QrGenerator />} />
-        <Route path="/contract" element={<ContractInteraction />} />
-        <Route path="/finalize" element={<Finalize />} />
+        <Route path="/deploy" element={<Deploy />} />
+        <Route path="/interact" element={<ContractInteraction />} />
+        <Route path="/transferApproval" element={<PrepareSignature />} />
       </Routes>
     </div>
   );
