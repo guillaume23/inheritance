@@ -2,11 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 
 /// @title SuccessionManager - Secure and controllable cryptoasset inheritance
 /// @notice Manages asset transfer to heirs in the event of owner's death
-contract SuccessionManager  is Ownable{
+contract SuccessionManager  is Ownable, ReentrancyGuard{
 address[] public heirs;
+address public armExecutor;
 uint256 public threshold;
 uint256 public delayPeriod;
 address public armedDestination;
@@ -14,7 +18,6 @@ uint256 public armTimestamp;
 uint256 public nonce;
 bool public isArmed;
 
-mapping(address => bool) public isHeir;
 
 /// @notice Emitted when the contract is armed for succession
 /// @param destination The address where funds will be sent after the delay
@@ -34,7 +37,7 @@ function getHeirsCount() public view returns (uint) {
 }
 
 function getOwner() public view returns (address) {
-    return owner(); // appelle le owner() d'Ownable
+    return owner(); // owner() from Ownable
 }
 
 /// @notice Ensures the contract is not already armed
@@ -42,6 +45,13 @@ modifier notArmed() {
     require(!isArmed, "Already armed");
     _;
 }
+
+function isHeir(address addr) public view returns (bool) {
+        for (uint i = 0; i < heirs.length; i++) {
+            if (heirs[i] == addr) return true;
+        }
+        return false;
+    }
 
 /// @notice Initializes the contract with heirs, threshold, and delay
 /// @param _owner Address of the owner
@@ -53,9 +63,6 @@ constructor(address _owner, address[] memory _heirs, uint256 _threshold, uint256
     heirs = _heirs;
     threshold = _threshold;
     delayPeriod = _delayPeriod;
-    for (uint i = 0; i < _heirs.length; i++) {
-        isHeir[_heirs[i]] = true;
-    }
 }
 
 /// @notice Allows the owner to update the heirs and threshold
@@ -64,15 +71,9 @@ constructor(address _owner, address[] memory _heirs, uint256 _threshold, uint256
 /// @param _delayPeriod The new waiting period before funds can be claimed
 function updateHeirs(address[] calldata _newHeirs, uint256 _newThreshold, uint256 _delayPeriod) external onlyOwner {
     require(_newThreshold > 0 && _newThreshold <= _newHeirs.length, "Invalid threshold");
-    for (uint i = 0; i < heirs.length; i++) {
-        isHeir[heirs[i]] = false;
-    }
     heirs = _newHeirs;
     threshold = _newThreshold;
     delayPeriod = _delayPeriod;
-    for (uint i = 0; i < _newHeirs.length; i++) {
-        isHeir[_newHeirs[i]] = true;
-    }
 }
 
 /// @notice Arms the contract for inheritance transfer if enough heirs agree
@@ -80,6 +81,7 @@ function updateHeirs(address[] calldata _newHeirs, uint256 _newThreshold, uint25
 /// @param destination Address to which funds will be transferred after delay
 function arm(bytes[] calldata signatures, address destination) external notArmed {
     require(destination != address(0), "Invalid destination");
+    require(signatures.length <= heirs.length, "Too many signatures");
     bytes32 messageHash = keccak256(abi.encodePacked(address(this), nonce, destination));
     bytes32 ethSigned = ECDSA.toEthSignedMessageHash(messageHash);
     address[] memory signers = new address[](signatures.length);
@@ -87,7 +89,7 @@ function arm(bytes[] calldata signatures, address destination) external notArmed
 
     for (uint i = 0; i < signatures.length; i++) {
         address signer = ECDSA.recover(ethSigned, signatures[i]);
-        require(isHeir[signer], "Invalid signature");
+        require(isHeir(signer), "Invalid signature");
         bool unique = true;
         for (uint j = 0; j < count; j++) {
             if (signers[j] == signer) {
@@ -105,6 +107,7 @@ function arm(bytes[] calldata signatures, address destination) external notArmed
     armTimestamp = block.timestamp;
     isArmed = true;
     emit Armed(destination, armTimestamp, delayPeriod, nonce);
+    armExecutor = msg.sender;
     nonce++;
 }
 
@@ -117,20 +120,35 @@ function cancel() external onlyOwner {
 }
 
 /// @notice Allows anyone to finalize the transfer after the delay has passed
-function triggerTransfer() external {
+function triggerTransfer(address[] calldata tokenAddresses) external nonReentrant {
     require(isArmed, "Not armed");
     require(block.timestamp >= armTimestamp + delayPeriod, "Delay not passed");
+    require(
+            msg.sender == owner() ||
+            isHeir(msg.sender) ||
+            msg.sender == armExecutor ||
+            msg.sender == armedDestination,
+            "Not authorized to trigger transfer"
+        );
 
-    address dest = armedDestination;
+    uint256 ethBalance = address(this).balance;
+    if (ethBalance > 0) {
+        (bool success, ) = payable(armedDestination).call{value: ethBalance}("");
+        require(success, "ETH transfer failed");
+    }
+
+    for (uint i = 0; i < tokenAddresses.length; i++) {
+        IERC20 token = IERC20(tokenAddresses[i]);
+        uint256 tokenBalance = token.balanceOf(address(this));
+        if (tokenBalance > 0) {
+            token.transfer(armedDestination, tokenBalance);
+        }
+    }
+
     isArmed = false;
     armedDestination = address(0);
     armTimestamp = 0;
-
-    (bool success, ) = dest.call{value: address(this).balance}("");
-    require(success, "Transfer failed");
-
-    armTimestamp = block.timestamp;
-    emit Transferred(armedDestination, armTimestamp);
+    emit Transferred(armedDestination, block.timestamp);
 }
 
 /// @notice Allows the owner to manually transfer funds to a chosen address

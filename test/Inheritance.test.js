@@ -248,13 +248,103 @@ describe("SuccessionManager Contract", function () {
       await ethers.provider.send("evm_mine");
 
       const balanceBefore = await ethers.provider.getBalance(destination);
-      await expect(contract.connect(other).triggerTransfer()).to.emit(
+      await expect(contract.connect(heirs[1]).triggerTransfer([])).to.emit(
         contract,
         "Transferred"
       );
       const balanceAfter = await ethers.provider.getBalance(destination);
 
       expect(balanceAfter).to.be.gt(balanceBefore);
+    });
+
+  it("should transfer funds after lockIn period and emit event from arm operator", async function () {
+      const destination = heirs[2].address;
+      const nonce = await contract.nonce();
+      const signatures = await Promise.all([
+        signMessage(heirs[0], contract.target, nonce, destination),
+        signMessage(heirs[1], contract.target, nonce, destination),
+      ]);
+
+      //make sure the contract has some ETH
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("1"),
+      });
+
+      await contract.connect(other).arm(signatures, destination);
+      await ethers.provider.send("evm_increaseTime", [lockInTime + 1]);
+      await ethers.provider.send("evm_mine");
+
+      const balanceBefore = await ethers.provider.getBalance(destination);
+      await expect(contract.connect(other).triggerTransfer([])).to.emit(
+        contract,
+        "Transferred"
+      );
+      const balanceAfter = await ethers.provider.getBalance(destination);
+
+      expect(balanceAfter).to.be.gt(balanceBefore);
+    });
+
+it("should transfer funds and ERC20", async function () {
+      const destination = heirs[2].address;
+      const nonce = await contract.nonce();
+      const signatures = await Promise.all([
+        signMessage(heirs[0], contract.target, nonce, destination),
+        signMessage(heirs[1], contract.target, nonce, destination),
+      ]);
+
+      const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
+      token = await ERC20Mock.deploy("TestToken", "TTK", owner.address, 1000);
+      await token.waitForDeployment();
+
+      //make sure the contract has some ETH
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("1"),
+      });
+
+      //send token to contract
+      await token.transfer(contract.target, 500);
+
+      await contract.connect(other).arm(signatures, destination);
+      await ethers.provider.send("evm_increaseTime", [lockInTime + 1]);
+      await ethers.provider.send("evm_mine");
+
+      const contractTokenBalance = await token.balanceOf(contract.target);
+      expect(contractTokenBalance).to.equal(500);
+
+      const balanceBefore = await ethers.provider.getBalance(destination);
+      await expect(contract.connect(other).triggerTransfer([token.target])).to.emit(
+        contract,
+        "Transferred"
+      );
+      const balanceAfter = await ethers.provider.getBalance(destination);
+
+      expect(balanceAfter).to.be.gt(balanceBefore);
+      const tokenBalance = await token.balanceOf(destination);
+      expect(tokenBalance).to.equal(500);
+
+    });
+
+
+  it("should fail transfer funds from unknown address", async function () {
+      const destination = heirs[2].address;
+      const nonce = await contract.nonce();
+      const signatures = await Promise.all([
+        signMessage(heirs[0], contract.target, nonce, destination),
+        signMessage(heirs[1], contract.target, nonce, destination),
+      ]);
+
+      //make sure the contract has some ETH
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("1"),
+      });
+
+      await contract.connect(owner).arm(signatures, destination);
+      await ethers.provider.send("evm_increaseTime", [lockInTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await expect(contract.connect(other).triggerTransfer([])).to.be.reverted;
     });
 
     it("should fail if lockIn period not passed", async function () {
@@ -266,8 +356,10 @@ describe("SuccessionManager Contract", function () {
       ]);
 
       await contract.connect(owner).arm(signatures, destination);
-      await expect(contract.connect(other).triggerTransfer()).to.be.reverted;
+      await expect(contract.connect(heirs[1]).triggerTransfer([])).to.be.reverted;
     });
+
+
   });
 
   describe("OwnerTransfer", function () {

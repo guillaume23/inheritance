@@ -1,0 +1,25 @@
+{
+  "network": [
+    {
+      "networkId": 1,
+      "networkName": "mainnet",
+      "erc20": [
+        { "name": "Lido Staked Ether", "symbol": "stETH", "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", "decimals": 18 },
+        { "name": "Bitget Token", "symbol": "BGB", "address": "0x2F02E6e19E7f40Cdb89664C3daFae5033B8eFc94", "decimals": 18 },
+        { "name": "Pepe", "symbol": "PEPE", "address": "0x6982508145454Ce325dDbE47a25d4ec3d2311933", "decimals": 18 },
+        { "name": "WhiteBIT Token", "symbol": "WBT", "address": "0xC98fcbF799748bA53dA09313b0cCf5a1bF34319A", "decimals": 8 },
+        { "name": "Ethena USDe", "symbol": "USDE", "address": "0xdE1E704dae0B4051e80DAbB26ab6ad6c12262DA0", "decimals": 18 },
+        { "name": "OKB", "symbol": "OKB", "address": "0x75231F58b43240C9718Dd58B4967c5114342a86c", "decimals": 18 },
+        { "name": "Render Token", "symbol": "RENDER", "address": "0x6De037ef9aD2725EB40118Bb1702EBb27e4Aeb24", "decimals": 18 },
+        { "name": "USD1", "symbol": "USD1", "address": "0x3166C570935a7D9B7E7F7D4c4B2419FeF0fDFB29", "decimals": 6 },
+        { "name": "Ethena", "symbol": "ENA", "address": "0x57bD17A3fB061E8109b31261a3F7Fc68d8DBcD4C", "decimals": 18 },
+        { "name": "Worldcoin", "symbol": "WLD", "address": "0xD61F1213C938E94b58C8c54Db9D105E43a4F019F", "decimals": 18 },
+        { "name": "KuCoin Token", "symbol": "KCS", "address": "0x5F4eC3Df9cbd43714FE2740f5E3616155c5b8419", "decimals": 18 },
+        { "name": "Quant", "symbol": "QNT", "address": "0x4a220E6096B25EADb88358cb44068A3248254675", "decimals": 18 },
+        { "name": "Rocket Pool ETH", "symbol": "RETH", "address": "0xae78736Cd615f374D3085123A210448E74Fc6393", "decimals": 18 },
+        { "name": "ImmutableX", "symbol": "IMX", "address": "0xF6dDC07D0A1bdA5C2bC1CC032CFe2E1f5A0bB9a5", "decimals": 18 },
+        { "name": "DexTools", "symbol": "DEXE", "address": "0x039cB485212f996A9DBb85A9a75d898F94d38dA6", "decimals": 18 },
+        { "name": "The Graph", "symbol": "GRT", "address": "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", "decimals": 18 },
+      ]
+    }
+}
