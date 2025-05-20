@@ -1,15 +1,37 @@
 // src/pages/PrepareSignature.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import { solidityPackedKeccak256, Wallet, ethers } from "ethers";
+import { useSearchParams } from "react-router-dom";
 
 export default function PrepareSignature() {
-  const [contractAddress, setContractAddress] = useState('');
-  const [nonce, setNonce] = useState('');
-  const [destination, setDestination] = useState('');
+  const [searchParams] = useSearchParams();
+  const [contractAddress, setContractAddress] = useState("");
+  const [nonce, setNonce] = useState(0);
+  const [destination, setDestination] = useState("");
   const [signature, setSignature] = useState(null);
   const [signingAddress, setSigningAddress] = useState(null);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const contractaddr = searchParams.get("contract");
+    const destaddr = searchParams.get("destination");
+    const no = searchParams.get("nonce");
+
+    if (contractaddr) setContractAddress(contractaddr);
+    if (destaddr) setDestination(destaddr);
+    if (no) setNonce(no);
+  }, [searchParams]);
+
+  const handleCopySignature = () => {
+    if (signature) {
+      navigator.clipboard.writeText(signature).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      });
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -23,7 +45,10 @@ export default function PrepareSignature() {
       setSigningAddress(wallet.address);
 
       // Build the message hash: keccak256(abi.encodePacked(contract, nonce, destination))
-      const messageHash = solidityPackedKeccak256(["address", "uint256", "address"], [contractAddress, nonce, destination]);
+      const messageHash = solidityPackedKeccak256(
+        ["address", "uint256", "address"],
+        [contractAddress, nonce, destination]
+      );
 
       console.log("messageHash", messageHash);
 
@@ -38,7 +63,7 @@ export default function PrepareSignature() {
     }
   };
 
-   const downloadKeyFile = (wallet, namePrefix) => {
+  const downloadKeyFile = (wallet, namePrefix) => {
     const data = {
       address: wallet.address,
       privateKey: wallet.privateKey,
@@ -62,52 +87,101 @@ export default function PrepareSignature() {
   };
 
   return (
-    <div className="p-4 max-w-xl mx-auto">
-      <h1 className="text-xl font-bold mb-4">Prepare Signature</h1>
+    <div
+      className="page-padding"
+      style={{ maxWidth: "640px", margin: "0 auto" }}
+    >
+      <h1 className="header-title">Prepare Signature</h1>
 
-      <div className="space-y-2">
+      <div className="vertical-stack">
+        <h2 className="subheader-title">Contract Address</h2>
         <input
-          className="border p-2 w-full"
-          placeholder="Contract address"
+          className="form-control input-text"
+          placeholder="0x..."
           value={contractAddress}
           onChange={(e) => setContractAddress(e.target.value)}
         />
+      </div>
+      <div>
+        <h2 className="subheader-title">Nonce</h2>
         <input
-          className="border p-2 w-full"
-          placeholder="Nonce (number)"
+          className="form-control input-text input-compact"
           type="number"
+          min={0}
           value={nonce}
           onChange={(e) => setNonce(e.target.value)}
         />
-        <input
-          className="border p-2 w-full"
-          placeholder="Destination address"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-        />
-         <button onClick={handleGenerateDestination}>🎲</button>
-        <label className="block mt-4">
-          <span className="font-semibold">Import key file (JSON)</span>
-          <input type="file" accept="application/json" onChange={handleFileUpload} />
-        </label>
-
+      </div>
+      <div className="vertical-stack">
+        <h2 className="subheader-title">Destination address</h2>
+        <div className="flex space-x-2">
+          <input
+            className="form-control input-text"
+            placeholder="0x..."
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+          />
+          <button
+            className="form-control btn-secondary"
+            onClick={handleGenerateDestination}
+          >
+            🎲
+          </button>
+        </div>
+        <div>
+          {destination && contractAddress && (
+            <>
+              <h2 className="subheader-title">
+                Load the private key for signing
+              </h2>
+              <label className="form-control btn-secondary">
+                📂
+                <input
+                  type="file"
+                  accept="application/json"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </>
+          )}
+        </div>
         {signingAddress && (
-          <div className="mt-2 text-sm">Signer address: <code>{signingAddress}</code></div>
+          <div className="mt-2 text-sm">
+            Signer address: <code>{signingAddress}</code>
+          </div>
         )}
 
         {signature && (
-          <div className="mt-4">
-            <label className="font-semibold">Signature:</label>
+          <>
+            <div className="mt-4 vertical-stack">
+              <label className="subheader-title">
+                Signature:
+                <button
+                  type="button"
+                  onClick={handleCopySignature}
+                  title="Copy to clipboard"
+                  className="copy-button"
+                >
+                  📋
+                </button>
+              </label>
+            </div>
             <textarea
-              className="w-full border p-2 mt-1 font-mono"
+              className="form-control input-text text-mono"
               rows={4}
               readOnly
               value={signature}
             />
-          </div>
+            {copied && (
+              <div className="copy-feedback">
+                Signature copied into the clipboard
+              </div>
+            )}
+          </>
         )}
 
-        {error && <div className="text-red-600 mt-2">{error}</div>}
+        {error && <div className="text-error mt-2">{error}</div>}
       </div>
     </div>
   );

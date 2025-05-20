@@ -49,7 +49,7 @@ export default function Deploy() {
   }
 
   // Deploy Contract using MetaMask
-  async function deployWithMetaMask() {
+  async function deployWithMetaMask(nid) {
     try {
       setStatus("Connecting to MetaMask...");
 
@@ -57,7 +57,7 @@ export default function Deploy() {
       const contractBytecode = successionManagerContract.bytecode; // Contract Bytecode
       const constructorArgs = config; // Arguments for the contract constructor
 
-      const signer = await connectToMetaMask(networkId);
+      const signer = await connectToMetaMask(nid);
       if (!signer) return;
 
       const contractFactory = new ContractFactory(
@@ -85,7 +85,7 @@ export default function Deploy() {
   }
 
   return (
-    <div className="container">
+    <div className="page-padding">
       <h1>Deployment</h1>
 
       <p>
@@ -99,7 +99,7 @@ export default function Deploy() {
         <p>
           This file contains basic contract settings: owner, heirs, threshold, lockIn period (sec).
         </p>
-        <button
+        <button className="btn btn-primary mt-2"
           onClick={() => downloadJSONFile(configFile, "succession-config.json")}
         >
           Download Config File
@@ -112,7 +112,7 @@ export default function Deploy() {
           Use this payload to deploy manually with low-level tools (e.g., Remix,
           CLI, or raw Ethereum transaction).
         </p>
-        <button
+        <button className="btn btn-primary mt-2"
           onClick={() =>
             downloadJSONFile(deploymentFile, "succession-deployment.json")
           }
@@ -123,8 +123,8 @@ export default function Deploy() {
 
       <section>
         <h1>3. Deploy Contract with Metamask</h1>
-        <button onClick={() => {setNetworkId(mainnetChainId); deployWithMetaMask();}}>Mainnet</button>{" "}
-        <button onClick={() => {setNetworkId(sepoliaChainId); deployWithMetaMask();}}>Testnet (Sepolia)</button>
+        <button className="btn btn-primary mt-2" onClick={() => {setNetworkId(mainnetChainId); deployWithMetaMask(mainnetChainId);}}>Mainnet</button>{" "}
+        <button className="btn btn-primary mt-2" onClick={() => {setNetworkId(sepoliaChainId); deployWithMetaMask(sepoliaChainId);}}>Testnet (Sepolia)</button>
 
         {status && <p>{status}</p>}
         {contractAddress && (
@@ -138,7 +138,7 @@ export default function Deploy() {
               View Contract on Etherscan
             </a>
             <br/>
-            <button onClick={goToContract}>Interact with this contract</button>
+            <button className="btn btn-primary mt-2" onClick={goToContract}>Interact with this contract</button>
           </div>
 
         )}

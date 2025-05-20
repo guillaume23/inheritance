@@ -10,10 +10,10 @@ function App() {
     <div className="container">
       <nav>
         <ul>
-          <li><Link to="/">Configuration</Link></li>
+          <li><Link to="/">Configure & Deploy</Link></li>
           {/* <li><Link to="/deploy">Deploy</Link></li> */}
-          <li><Link to="/interact">Interact</Link></li>
-          <li><Link to="/transferApproval">Transfer approval</Link></li>
+          <li><Link to="/interact">Interact with contract</Link></li>
+          <li><Link to="/transferApproval">Sign for transfer approval</Link></li>
         </ul>
       </nav>
       <Routes>

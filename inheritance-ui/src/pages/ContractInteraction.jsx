@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   getBytes,
   isAddress,
@@ -6,7 +7,7 @@ import {
   solidityPackedKeccak256,
   BrowserProvider,
   verifyMessage,
-  Contract
+  Contract,
 } from "ethers";
 import SuccessionManager from "../contract/SuccessionManager.json";
 import tokensData from "../data/tokens.json";
@@ -14,10 +15,13 @@ import tokensData from "../data/tokens.json";
 const erc20Abi = [
   "function balanceOf(address) view returns (uint256)",
   "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)"
 ];
 
 export default function ContractInteraction() {
+  const [searchParams] = useSearchParams();
   const [contractAddress, setContractAddress] = useState("");
+  const [nonce, setNonce] = useState("0");
   const [networkId, setNetworkId] = useState("");
   const [contractInfo, setContractInfo] = useState(null);
   const [contract, setContract] = useState(null);
@@ -28,6 +32,34 @@ export default function ContractInteraction() {
   const [isScanning, setIsScanning] = useState(false);
   const [manualToken, setManualToken] = useState("");
   const [isAddingToken, setIsAddingToken] = useState(false);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const addr = searchParams.get("address");
+    const netId = searchParams.get("networkId");
+
+    if (addr) setContractAddress(addr);
+    if (netId) setNetworkId(String(netId));
+  }, [searchParams]);
+
+  const handleGoToApproval = () => {
+    const params = new URLSearchParams({
+      contract: contractAddress,
+      destination,
+      nonce,
+    });
+    window.open(`/transferApproval?${params.toString()}`);
+  };
+
+ const formatTokenAmount = (balance, decimals) => {
+   const formatted = ethers.formatUnits(balance, decimals);
+
+   return parseFloat(formatted).toLocaleString(undefined, {
+     minimumFractionDigits: 1,
+     maximumFractionDigits: 6,
+   });
+ };
 
   const handleReadContract = async () => {
     try {
@@ -42,14 +74,15 @@ export default function ContractInteraction() {
         SuccessionManager.abi,
         signer
       );
-      const owner = await contract.owner(); // TODO getOwner();
+      const owner = await contract.getOwner();
       const heirs = await contract.getHeirs();
       const threshold = await contract.threshold();
       const isArmed = await contract.isArmed();
       const armTimestamp = await contract.armTimestamp();
       const delayPeriod = await contract.delayPeriod();
       const armedDestination = await contract.armedDestination();
-      const nonce = await contract.nonce();
+      const _nonce = await contract.nonce();
+      setNonce(_nonce);
 
       const balance = await provider.getBalance(contractAddress);
       const balanceInEth = ethers.formatEther(balance);
@@ -64,7 +97,7 @@ export default function ContractInteraction() {
         armTimestamp: armTimestamp.toString(),
         delayPeriod: delayPeriod.toString(),
         armedDestination,
-        nonce,
+        nonce:_nonce,
         balanceInEth,
       });
       setSignatures(Array(parseInt(threshold)).fill(""));
@@ -94,10 +127,12 @@ export default function ContractInteraction() {
               detected.push({
                 address: token.address,
                 symbol: token.symbol,
-                balance: balance.toString(),
+                balance: formatTokenAmount(balance.toString(), token.decimals),
               });
             }
-          } catch (err) {console.log(err)}
+          } catch (err) {
+            console.log(err);
+          }
         })
       );
 
@@ -173,9 +208,10 @@ export default function ContractInteraction() {
 
   const handleTransfer = async () => {
     try {
-      const tx = await contract.triggerTransfer(
+      const tx = await contract
+        .triggerTransfer
         //tokenList.map((t) => t.address)
-      );
+        ();
       await tx.wait();
       alert("Transfer executed.");
       handleReadContract();
@@ -191,16 +227,16 @@ export default function ContractInteraction() {
 
       const provider = new BrowserProvider(window.ethereum);
       const tokenContract = new Contract(manualToken, erc20Abi, provider);
-      const [balance, symbol] = await Promise.all([
+      const [balance, symbol, decimals] = await Promise.all([
         tokenContract.balanceOf(contractAddress),
         tokenContract.symbol(),
+        tokenContract.decimals()
       ]);
-
 
       if (balance > 0n) {
         setTokenList((prev) => [
           ...prev,
-          { address: manualToken, symbol, balance: balance.toString() },
+          { address: manualToken, symbol, balance: formatTokenAmount(balance.toString(), decimals) },
         ]);
       } else {
         alert("Token balance is 0 for this contract");
@@ -227,34 +263,33 @@ export default function ContractInteraction() {
       alert("Failed to cancel: " + e.message);
     }
   };
-
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Contract Interaction</h1>
-      <div className="space-y-2">
+    <div className="page-padding">
+      <h1 className="header-title">Contract Interaction</h1>
+
+      <div className="vertical-stack">
         <input
-          className="border p-2 w-full"
+          className="form-control input-text"
           placeholder="Contract address"
           value={contractAddress}
           onChange={(e) => setContractAddress(e.target.value)}
         />
         <input
-          className="border p-2 w-full"
+          className="form-control input-text"
           placeholder="Network ID (e.g. 11155111 for Sepolia)"
           value={networkId}
           onChange={(e) => setNetworkId(e.target.value)}
         />
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={handleReadContract}
-        >
+      </div>
+      <div>
+        <button className="btn btn-primary mt-6" onClick={handleReadContract}>
           Load Contract
         </button>
       </div>
 
       {contractInfo && (
-        <div className="mt-6 space-y-2">
-          <h2 className="text-lg font-semibold">Contract Info</h2>
+        <div className="mt-6 vertical-stack">
+          <h2 className="subheader-title">Contract Info</h2>
           <div>
             <strong>Value:</strong> {contractInfo.balanceInEth}
           </div>
@@ -263,8 +298,7 @@ export default function ContractInteraction() {
           </div>
           <div>
             <strong>Heirs:</strong>
-            <ul>
-              {" "}
+            <ul className="vertical-stack mt-2">
               {contractInfo.heirs.map((h) => (
                 <li key={h}>{h}</li>
               ))}
@@ -274,7 +308,7 @@ export default function ContractInteraction() {
             <strong>Threshold:</strong> {contractInfo.threshold}
           </div>
           <div>
-            <strong>nonce:</strong> {contractInfo.nonce}
+            <strong>Nonce:</strong> {contractInfo.nonce}
           </div>
           <div>
             <strong>Armed:</strong> {contractInfo.isArmed ? "Yes" : "No"}
@@ -298,112 +332,111 @@ export default function ContractInteraction() {
           )}
         </div>
       )}
+
       {contractInfo && userAddress && (
-        <div className="space-y-2 mt-4">
+        <div className="mt-4 vertical-stack">
           {contractInfo.owner.toLowerCase() === userAddress.toLowerCase() ? (
             <>
               {!contractInfo.isArmed ? (
-                <>
-                  <button
-                    onClick={handleArm}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                  >
+                <div className="flex space-x-2">
+                  <button onClick={handleArm} className="btn btn-success">
                     Arm
                   </button>
-                  <button
-                    onClick={handleCancel}
-                    className="bg-red-600 text-white px-4 py-2 rounded"
-                  >
+                  <button onClick={handleCancel} className="btn btn-danger">
                     Cancel
                   </button>
-                  <button
-                    disabled
-                    className="bg-gray-400 text-white px-4 py-2 rounded"
-                  >
+                  <button disabled className="btn btn-secondary">
                     Update (coming soon)
                   </button>
-                </>
-              ) : (
-                <div className="text-sm text-gray-500">
-                  Contract already armed
                 </div>
+              ) : (
+                <div className="text-sm">Contract already armed</div>
               )}
             </>
           ) : (
             <>
               {contractInfo.isArmed ? (
                 <>
-                  <h3 className="font-semibold mt-4">
+                  <h3 className="subheader-title mt-4">
                     Detected Token Balances
                   </h3>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="vertical-stack mt-2">
                     {tokenList.map((token, i) => (
-                      <li key={i} className="flex justify-between items-center">
+                      <li key={i} >
                         <span>
-                          {token.symbol}: {token.balance} ({token.address})
-                        </span>
-                        <button
-                          onClick={() => handleRemoveToken(token.address)}
-                          className="ml-2 text-red-600 text-xs"
-                        >
-                          Remove
-                        </button>
+                          {token.symbol}: {token.balance} ({token.address})<button
+      className="btn-small"
+      onClick={() => handleRemoveToken(token.address)}
+      title="Remove token"
+    >❌</button> </span>
                       </li>
                     ))}
                   </ul>
 
                   <div className="mt-4 flex space-x-2">
                     <input
-                      className="border p-2 flex-1"
+                      className="form-control input-text"
                       placeholder="ERC20 contract address"
                       value={manualToken}
                       onChange={(e) => setManualToken(e.target.value)}
                     />
                     <button
                       onClick={handleAddToken}
-                      className="bg-gray-400 text-white px-4 py-2 rounded"
+                      className="btn btn-secondary"
                       disabled={isAddingToken}
                     >
                       {isAddingToken ? "Scanning..." : "Add"}
                     </button>
                   </div>
-
+                  <div className="mt-4 flex space-x-2">
+               
                   <button
                     onClick={handleTransfer}
-                    className="mt-6 bg-purple-600 text-white px-4 py-2 rounded"
+                    className="btn btn-purple mt-6"
                   >
                     Trigger Transfer
                   </button>
+                  </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <h3 className="font-semibold">Prepare to Arm</h3>
-                  <input
-                    className="border p-2 w-full"
-                    placeholder="Destination address"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                  />
-                  {signatures.map((sig, idx) => (
+                <>
+                  <div className="vertical-stack mt-4">
+                    <h3 className="subheader-title">Prepare to Arm</h3>
                     <input
-                      key={idx}
-                      className="border p-2 w-full"
-                      placeholder={`Signature ${idx + 1}`}
-                      value={sig}
-                      onChange={(e) => {
-                        const updated = [...signatures];
-                        updated[idx] = e.target.value;
-                        setSignatures(updated);
-                      }}
+                      className="form-control input-text w-full"
+                      placeholder="Destination address"
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
                     />
-                  ))}
-                  <button
-                    onClick={handleArm}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                  >
-                    Validate & Call Arm
-                  </button>
-                </div>
+                    {signatures.map((sig, idx) => (
+                      <div key={idx} className="flex space-x-2 items-center">
+                        <input
+                          className="form-control input-text w-full"
+                          placeholder={`Signature ${idx + 1}`}
+                          value={sig}
+                          onChange={(e) => {
+                            const updated = [...signatures];
+                            updated[idx] = e.target.value;
+                            setSignatures(updated);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="form-control btn-secondary"
+                          onClick={handleGoToApproval}
+                          title="Open signature helper"
+                        >
+                          🖋
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <button onClick={handleArm} className="btn btn-success">
+                      Validate & Call Arm
+                    </button>
+                  </div>
+                </>
               )}
             </>
           )}

@@ -157,45 +157,59 @@ export default function Home() {
     navigate("/deploy", { state: { config } });
   };
 
-  return (
-    <div className="container">
-      <h1>Inheritance Contract Setup</h1>
+ return (
+    <div className="page-padding">
+      <h1 className="header-title">Inheritance Contract Setup</h1>
 
-      <section>
-        <h2>Owner Address</h2>
-        <input
-          type="text"
-          value={owner}
-          onChange={(e) => setOwner(e.target.value)}
-          onBlur={handleOwnerBlur}
-          placeholder="0x..."
-        />
-        <button onClick={handleGenerateOwner}>🎲</button>
-        <label className="import-button">
-          📂 Import
+      <section className="vertical-stack">
+        <h2 className="subheader-title">Owner Address</h2>
+        <div className="flex space-x-2">
           <input
-            type="file"
-            accept="application/json"
-            onChange={handleImportOwner}
-            style={{ display: "none" }}
+            className="form-control input-text"
+            type="text"
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            onBlur={handleOwnerBlur}
+            placeholder="0x..."
           />
-        </label>
-        {ownerError && <div className="error">{ownerError}</div>}
+          <button
+            className="form-control btn-secondary"
+            onClick={handleGenerateOwner}
+          >
+            🎲
+          </button>
+          <label className="form-control btn-secondary">
+            📂 
+            <input
+              type="file"
+              accept="application/json"
+              onChange={handleImportOwner}
+              style={{ display: "none" }}
+            />
+          </label>
+        </div>
+        {ownerError && <div className="text-error">{ownerError}</div>}
       </section>
 
-      <section>
-        <h2>Heirs</h2>
+      <section className="vertical-stack mt-4">
+        <h2 className="subheader-title">Heirs</h2>
         {heirs.map((heir, index) => (
-          <div key={index}>
+          <div key={index} className="flex space-x-2 items-center">
             <input
+              className="form-control input-text"
               type="text"
               value={heir.address}
               onChange={(e) => handleHeirChange(index, e.target.value)}
               onBlur={() => handleHeirBlur(index)}
               placeholder="0x..."
             />
-            <button onClick={() => handleGenerateHeir(index)}>🎲</button>
-            <label className="import-button">
+            <button
+              className="form-control btn-secondary"
+              onClick={() => handleGenerateHeir(index)}
+            >
+              🎲
+            </button>
+            <label className="form-control btn-secondary">
               📂
               <input
                 type="file"
@@ -206,24 +220,30 @@ export default function Home() {
             </label>
             {heirs.length > 1 && (
               <button
+                className="form-control btn-secondary"
                 onClick={() => setHeirs(heirs.filter((_, i) => i !== index))}
               >
                 ❌
               </button>
             )}
-            {heir.error && <div className="error">{heir.error}</div>}
+            {heir.error && <div className="text-error">{heir.error}</div>}
           </div>
         ))}
+        </section>
+        <br/>
+        <section>
         <button
+          className="btn btn-primary mt-2"
           onClick={() => setHeirs([...heirs, { address: "", error: "" }])}
         >
           Add Heir
         </button>
       </section>
 
-      <section>
-        <h2>Threshold</h2>
+      <section className="vertical-stack mt-4">
+        <h2 className="subheader-title">Threshold</h2>
         <input
+          className="input-default"
           type="number"
           value={threshold}
           onChange={(e) => setThreshold(parseInt(e.target.value))}
@@ -232,52 +252,30 @@ export default function Home() {
         />
       </section>
 
-     <section>
-        <div>
-        <h2>Lock-in Period</h2>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <div>
-            <label>Days</label>
-            <input
-              type="number"
-              min="0"
-              value={lockIn.days}
-              onChange={(e) => handleLockInChange('days', e.target.value)}
-            />
-          </div>
-          <div>
-            <label>Hours</label>
-            <input
-              type="number"
-              min="0"
-              value={lockIn.hours}
-              onChange={(e) => handleLockInChange('hours', e.target.value)}
-            />
-          </div>
-          <div>
-            <label>Minutes</label>
-            <input
-              type="number"
-              min="0"
-              value={lockIn.minutes}
-              onChange={(e) => handleLockInChange('minutes', e.target.value)}
-            />
-          </div>
-          <div>
-            <label>Seconds</label>
-            <input
-              type="number"
-              min="0"
-              value={lockIn.seconds}
-              onChange={(e) => handleLockInChange('seconds', e.target.value)}
-            />
-          </div>
+      <section className="vertical-stack mt-4">
+        <h2 className="subheader-title">Lock-in Period</h2>
+        <div className="flex space-x-2">
+          {["days", "hours", "minutes", "seconds"].map((field) => (
+            <div key={field} className="vertical-stack">
+              <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+              <input
+                className="input-default input-sm"
+                type="number"
+                min="0"
+                value={lockIn[field]}
+                onChange={(e) => handleLockInChange(field, e.target.value)}
+              />
+            </div>
+          ))}
         </div>
-        {lockInError && <span style={{ color: 'red' }}>{lockInError}</span>}
-      </div>
-     </section>
+        {lockInError && <span className="text-error">{lockInError}</span>}
+      </section>
 
-      <button disabled={!isValidDeployment()} onClick={handleDeploy}>
+      <button
+        className="btn btn-primary mt-6"
+        disabled={!isValidDeployment()}
+        onClick={handleDeploy}
+      >
         Deploy
       </button>
     </div>
