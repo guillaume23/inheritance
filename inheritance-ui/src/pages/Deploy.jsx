@@ -68,7 +68,6 @@ export default function Deploy() {
 
       setStatus("Deploying contract...");
 
-      console.log(constructorArgs);
       const argsArray = [
         constructorArgs.owner,
         constructorArgs.heirs,

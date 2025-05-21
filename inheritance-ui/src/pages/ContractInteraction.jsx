@@ -41,6 +41,7 @@ export default function ContractInteraction() {
 
     if (addr) setContractAddress(addr);
     if (netId) setNetworkId(String(netId));
+
   }, [searchParams]);
 
   const handleGoToApproval = () => {
@@ -60,6 +61,25 @@ export default function ContractInteraction() {
      maximumFractionDigits: 6,
    });
  };
+
+function formatDuration(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  if (s || parts.length === 0) parts.push(`${s}s`);
+
+  return parts.join(' ');
+}
+
+const handleUpdate = () => {
+  navigate(`/update?contract=${contractAddress}&networkId=${networkId}`);
+};
 
   const handleReadContract = async () => {
     try {
@@ -209,9 +229,7 @@ export default function ContractInteraction() {
   const handleTransfer = async () => {
     try {
       const tx = await contract
-        .triggerTransfer
-        //tokenList.map((t) => t.address)
-        ();
+        .triggerTransfer(tokenList.map((t) => t.address));
       await tx.wait();
       alert("Transfer executed.");
       handleReadContract();
@@ -257,7 +275,6 @@ export default function ContractInteraction() {
     try {
       const tx = await contract.cancel();
       await tx.wait();
-      alert("Contract cancelled.");
       handleReadContract();
     } catch (e) {
       alert("Failed to cancel: " + e.message);
@@ -284,7 +301,9 @@ export default function ContractInteraction() {
       <div>
         <button className="btn btn-primary mt-6" onClick={handleReadContract}>
           Load Contract
-        </button>
+        </button> <div className="helper-text">
+  Use the owner wallet to access owner-specific actions.
+</div>
       </div>
 
       {contractInfo && (
@@ -306,6 +325,9 @@ export default function ContractInteraction() {
           </div>
           <div>
             <strong>Threshold:</strong> {contractInfo.threshold}
+          </div>
+           <div>
+            <strong>LockIn period:</strong> {formatDuration(contractInfo.delayPeriod)}
           </div>
           <div>
             <strong>Nonce:</strong> {contractInfo.nonce}
@@ -337,20 +359,18 @@ export default function ContractInteraction() {
         <div className="mt-4 vertical-stack">
           {contractInfo.owner.toLowerCase() === userAddress.toLowerCase() ? (
             <>
-              {!contractInfo.isArmed ? (
+              {contractInfo.isArmed ? (
                 <div className="flex space-x-2">
-                  <button onClick={handleArm} className="btn btn-success">
-                    Arm
-                  </button>
                   <button onClick={handleCancel} className="btn btn-danger">
-                    Cancel
-                  </button>
-                  <button disabled className="btn btn-secondary">
-                    Update (coming soon)
+                    Cancel Arm
                   </button>
                 </div>
               ) : (
-                <div className="text-sm">Contract already armed</div>
+                 <div className="flex space-x-2">
+                 <button className="btn btn-secondary"  onClick={handleUpdate}>
+                    Update Heirs and Threshold
+                  </button>
+                  </div>
               )}
             </>
           ) : (

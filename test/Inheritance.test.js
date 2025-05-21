@@ -3,7 +3,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { signMessage } = require("../utils/signature");
-const { signAddress } = require("../utils/signature");
 
 describe("SuccessionManager Contract", function () {
   let contract, owner, heirs, other;
@@ -257,7 +256,7 @@ describe("SuccessionManager Contract", function () {
       expect(balanceAfter).to.be.gt(balanceBefore);
     });
 
-  it("should transfer funds after lockIn period and emit event from arm operator", async function () {
+    it("should transfer funds after lockIn period and emit event from arm operator", async function () {
       const destination = heirs[2].address;
       const nonce = await contract.nonce();
       const signatures = await Promise.all([
@@ -285,7 +284,7 @@ describe("SuccessionManager Contract", function () {
       expect(balanceAfter).to.be.gt(balanceBefore);
     });
 
-it("should transfer funds and ERC20", async function () {
+    it("should transfer funds and ERC20 after armed", async function () {
       const destination = heirs[2].address;
       const nonce = await contract.nonce();
       const signatures = await Promise.all([
@@ -314,20 +313,17 @@ it("should transfer funds and ERC20", async function () {
       expect(contractTokenBalance).to.equal(500);
 
       const balanceBefore = await ethers.provider.getBalance(destination);
-      await expect(contract.connect(other).triggerTransfer([token.target])).to.emit(
-        contract,
-        "Transferred"
-      );
+      await expect(
+        contract.connect(other).triggerTransfer([token.target])
+      ).to.emit(contract, "Transferred");
       const balanceAfter = await ethers.provider.getBalance(destination);
 
       expect(balanceAfter).to.be.gt(balanceBefore);
       const tokenBalance = await token.balanceOf(destination);
       expect(tokenBalance).to.equal(500);
-
     });
 
-
-  it("should fail transfer funds from unknown address", async function () {
+    it("should fail transfer funds from unknown address", async function () {
       const destination = heirs[2].address;
       const nonce = await contract.nonce();
       const signatures = await Promise.all([
@@ -356,13 +352,42 @@ it("should transfer funds and ERC20", async function () {
       ]);
 
       await contract.connect(owner).arm(signatures, destination);
-      await expect(contract.connect(heirs[1]).triggerTransfer([])).to.be.reverted;
+      await expect(contract.connect(heirs[1]).triggerTransfer([])).to.be
+        .reverted;
     });
-
-
   });
 
+  /*
   describe("OwnerTransfer", function () {
+
+       it("Allows owner to withdraw ETH (happy path)", async function () {
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("1"),
+      });
+
+      const initialOwnerBalance = await ethers.provider.getBalance(
+        owner.address
+      );
+      const tx = await contract.connect(owner).withdraw();
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+
+      const finalOwnerBalance = await ethers.provider.getBalance(owner.address);
+      const contractBalance = await ethers.provider.getBalance(
+        await contract.getAddress()
+      );
+
+      expect(contractBalance).to.equal(0n);
+      expect(finalOwnerBalance).to.be.gt(initialOwnerBalance - gasUsed);
+    });
+
+    it("Fails when a non-owner tries to withdraw", async function () {
+      await expect(contract.connect(other).withdraw())
+        .to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
+        .withArgs(other.address);
+    });
+
     it("should allow the owner to manually transfer ETH", async () => {
       // Send some ETH to the contract
       await owner.sendTransaction({
@@ -397,6 +422,137 @@ it("should transfer funds and ERC20", async function () {
       )
         .to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
         .withArgs(other.address);
+    });
+  });
+*/
+
+  describe("Valid calls", function () {
+    it("should transfer full ETH to address", async function () {
+      const to = heirs[0].address;
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("10"),
+      });
+
+      const before = await ethers.provider.getBalance(to);
+
+      await contract.transferAssets(to, 0, [], true);
+
+      const after = await ethers.provider.getBalance(to);
+      expect(after - before).to.be.closeTo(
+        ethers.parseEther("10"),
+        ethers.parseEther("0.001")
+      );
+    });
+
+    it("should transfer partial ETH to address", async function () {
+      const to = heirs[0].address;
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("10"),
+      });
+      await contract.transferAssets(to, ethers.parseEther("1"), [], false);
+
+      const bal = await ethers.provider.getBalance(to);
+      expect(bal).to.be.above(ethers.parseEther("0.9"));
+    });
+
+    it("should transfer tokens only", async function () {
+      const to = heirs[0].address;
+
+      const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
+      const token1 = await ERC20Mock.deploy(
+        "TestToken",
+        "TTK",
+        contract.target,
+        1000
+      );
+
+      await contract.transferAssets(to, 0, [token1.target], false);
+
+      const bal = await token1.balanceOf(to);
+      expect(bal).to.equal(ethers.parseUnits("1000", 0));
+    });
+
+    it("should transfer ETH and multiple tokens", async function () {
+      const to = heirs[1].address;
+      const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
+      const token1 = await ERC20Mock.deploy(
+        "TestToken",
+        "TTK",
+        contract.target,
+        1000
+      );
+      const token2 = await ERC20Mock.deploy(
+        "TestToken 2",
+        "TGK",
+        contract.target,
+        2000
+      );
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("10"),
+      });
+
+      await contract.transferAssets(
+        to,
+        ethers.parseEther("1"),
+        [token1.target, token2.target],
+        false
+      );
+
+      const bal1 = await token1.balanceOf(to);
+      const bal2 = await token2.balanceOf(to);
+      expect(bal1).to.equal(ethers.parseUnits("1000", 0));
+      expect(bal2).to.equal(ethers.parseUnits("2000", 0));
+    });
+  });
+
+  describe("Failures", function () {
+    it("should revert if called by non-owner", async function () {
+      await expect(
+        contract
+          .connect(heirs[0])
+          .transferAssets(heirs[0].address, 0, [], false)
+      ).to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount");
+    });
+
+    it("should revert if destination address is zero", async function () {
+      await expect(
+        contract.transferAssets(ethers.ZeroAddress, 0, [], false)
+      ).to.be.revertedWith("Invalid recipient");
+    });
+
+    it("should revert if ethAmount > balance and transferAllEth = false", async function () {
+      await owner.sendTransaction({
+        to: contract.target,
+        value: ethers.parseEther("10"),
+      });
+      const tooMuch = ethers.parseEther("9999");
+      await expect(
+        contract.transferAssets(heirs[0].address, tooMuch, [], false)
+      ).to.be.revertedWith("Insufficient ETH");
+    });
+  });
+
+  describe("Edge cases", function () {
+    it("should silently skip tokens with zero balance", async function () {
+      const to = heirs[0].address;
+      const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
+      const token1 = await ERC20Mock.deploy(
+        "TestToken",
+        "TTK",
+        owner.address,
+        1000
+      );
+      await contract.transferAssets(to, 0, [token1.target], false);
+
+      const bal = await token1.balanceOf(to);
+      expect(bal).to.equal(0);
+    });
+
+    it("should succeed with empty token list and no ETH", async function () {
+      await contract.transferAssets(heirs[0].address, 0, [], false);
     });
   });
 
@@ -455,36 +611,6 @@ it("should transfer funds and ERC20", async function () {
             lockInTime
           )
       ).to.be.revertedWith("Invalid threshold");
-    });
-  });
-
-  describe("Withdraw function", function () {
-    it("Allows owner to withdraw ETH (happy path)", async function () {
-      await owner.sendTransaction({
-        to: contract.target,
-        value: ethers.parseEther("1"),
-      });
-
-      const initialOwnerBalance = await ethers.provider.getBalance(
-        owner.address
-      );
-      const tx = await contract.connect(owner).withdraw();
-      const receipt = await tx.wait();
-      const gasUsed = receipt.gasUsed * receipt.gasPrice;
-
-      const finalOwnerBalance = await ethers.provider.getBalance(owner.address);
-      const contractBalance = await ethers.provider.getBalance(
-        await contract.getAddress()
-      );
-
-      expect(contractBalance).to.equal(0n);
-      expect(finalOwnerBalance).to.be.gt(initialOwnerBalance - gasUsed);
-    });
-
-    it("Fails when a non-owner tries to withdraw", async function () {
-      await expect(contract.connect(other).withdraw())
-        .to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
-        .withArgs(other.address);
     });
   });
 });

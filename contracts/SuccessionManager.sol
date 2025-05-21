@@ -119,7 +119,7 @@ function cancel() external onlyOwner {
     armTimestamp = 0;
 }
 
-/// @notice Allows anyone to finalize the transfer after the delay has passed
+/// @notice Finalize the transfer after the delay has passed
 function triggerTransfer(address[] calldata tokenAddresses) external nonReentrant {
     require(isArmed, "Not armed");
     require(block.timestamp >= armTimestamp + delayPeriod, "Delay not passed");
@@ -131,9 +131,17 @@ function triggerTransfer(address[] calldata tokenAddresses) external nonReentran
             "Not authorized to trigger transfer"
         );
 
+    _executeTransfers(tokenAddresses, armedDestination);
+  
+    isArmed = false;
+    armedDestination = address(0);
+    armTimestamp = 0;
+}
+
+function _executeTransfers(address[] calldata tokenAddresses, address to) private {
     uint256 ethBalance = address(this).balance;
     if (ethBalance > 0) {
-        (bool success, ) = payable(armedDestination).call{value: ethBalance}("");
+        (bool success, ) = payable(to).call{value: ethBalance}("");
         require(success, "ETH transfer failed");
     }
 
@@ -141,24 +149,11 @@ function triggerTransfer(address[] calldata tokenAddresses) external nonReentran
         IERC20 token = IERC20(tokenAddresses[i]);
         uint256 tokenBalance = token.balanceOf(address(this));
         if (tokenBalance > 0) {
-            token.transfer(armedDestination, tokenBalance);
+            token.transfer(to, tokenBalance);
         }
     }
 
-    isArmed = false;
-    armedDestination = address(0);
-    armTimestamp = 0;
     emit Transferred(armedDestination, block.timestamp);
-}
-
-/// @notice Allows the owner to manually transfer funds to a chosen address
-/// @param to The recipient address
-/// @param amount The amount of wei to send
-function ownerTransfer(address payable to, uint256 amount) external onlyOwner {
-    require(to != address(0), "Invalid address");
-    require(amount <= address(this).balance, "Insufficient balance");
-    (bool success, ) = to.call{value: amount}("");
-    require(success, "Transfer failed");
 }
 
 /// @notice Returns the current list of heir addresses
@@ -170,13 +165,39 @@ function getHeirs() external view returns (address[] memory) {
 /// @notice Accepts ether deposits into the contract
 receive() external payable {}
 
-/// @notice Allows the contract owner to withdraw all ETH from the contract.
+/// @notice Allows the contract owner to transfer all or some ETH from the contract as well as token.
 /// @dev Only callable by the owner.
-function withdraw() external onlyOwner {
-    uint256 balance = address(this).balance;
-    require(balance > 0, "No ETH to withdraw");
-    (bool success, ) = owner().call{value: balance}("");
-    require(success, "Withdraw failed");
+function transferAssets(
+    address payable to,
+    uint256 ethAmount,
+    address[] calldata tokenAddresses,
+    bool transferAllEth
+) external onlyOwner nonReentrant {
+    require(to != address(0), "Invalid recipient");
+
+    // ETH transfer
+    if (transferAllEth) {
+        uint256 balance = address(this).balance;
+        if (balance > 0) {
+            (bool success, ) = to.call{value: balance}("");
+            require(success, "ETH transfer failed");
+        }
+    } else if (ethAmount > 0) {
+        require(address(this).balance >= ethAmount, "Insufficient ETH");
+        (bool success, ) = to.call{value: ethAmount}("");
+        require(success, "ETH transfer failed");
+    }
+
+    // Token transfers
+    for (uint256 i = 0; i < tokenAddresses.length; i++) {
+        IERC20 token = IERC20(tokenAddresses[i]);
+        uint256 bal = token.balanceOf(address(this));
+        if (bal > 0) {
+            token.transfer(to, bal);
+        }
+    }
+
+    emit Transferred(to, block.timestamp);
 }
 
 }

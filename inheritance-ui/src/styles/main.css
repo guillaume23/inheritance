@@ -292,3 +292,12 @@ nav a.active::after {
 .btn-small:hover {
   background-color: #f0f0f0;
 }
+
+
+.helper-text {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
